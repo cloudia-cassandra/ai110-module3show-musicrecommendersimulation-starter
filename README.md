@@ -204,6 +204,33 @@ Profile: genre=pop, mood=happy, energy=0.8
 
 **Does this match expectations?** Mostly. *Sunrise City* is the only song that matches pop, happy *and* the target energy, so it's a clear #1. *Gym Hero* comes second on the genre bonus even though its mood is "intense," ahead of *Rooftop Lights*, which has the right mood but is "indie pop" rather than "pop." This is the genre over-prioritization noted in **Expected biases**. Ranks 4–5 have no label matches and qualify on energy alone.
 
+**Table view:** add `--table` for a compact summary with every reason inside the table (`python -m src.main --table`):
+
+```
+High-Energy Pop
+Profile: genre='pop', mood='happy', energy=0.8
++---+------------------+-------+------------------------------------+
+| # | Song             | Score | Reasons                            |
++===+==================+=======+====================================+
+| 1 | Sunrise City     |  4.96 | genre matches pop (+2.0)           |
+|   | by Neon Echo     |       | mood matches happy (+1.0)          |
+|   |                  |       | energy 0.82 vs target 0.80 (+1.96) |
++---+------------------+-------+------------------------------------+
+| 2 | Gym Hero         |  3.74 | genre matches pop (+2.0)           |
+|   | by Max Pulse     |       | energy 0.93 vs target 0.80 (+1.74) |
++---+------------------+-------+------------------------------------+
+| 3 | Rooftop Lights   |  2.92 | mood matches happy (+1.0)          |
+|   | by Indigo Parade |       | energy 0.76 vs target 0.80 (+1.92) |
++---+------------------+-------+------------------------------------+
+| 4 | Fuego Lento      |  2.00 | energy 0.80 vs target 0.80 (+2.00) |
+|   | by Los Caminos   |       |                                    |
++---+------------------+-------+------------------------------------+
+| 5 | Concrete Crown   |  1.96 | energy 0.78 vs target 0.80 (+1.96) |
+|   | by K-Verse       |       |                                    |
++---+------------------+-------+------------------------------------+
+Top pick: Sunrise City, 1.22 points ahead of #2
+```
+
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
 
 ---

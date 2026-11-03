@@ -144,3 +144,59 @@ Add a "diversity penalty" so the top results don't fill up with songs from the s
 - **Diversity can cost relevance.** For *Rap Hits* and *Messy Input*, *Night Drive Loop* (a repeat Neon Echo song) was replaced by *Storm Runner*, an intense rock song that's a worse fit for those listeners. For Chill Lofi, *Gray Morning Blues* (melancholic blues) entered at #5. It's calm and acoustic, but it isn't really study music.
 - **Fairness for artists:** without the penalty, LoRoom and Neon Echo, the only artists with two songs, could take two of the five spots. With it, five different artists get exposure. In a real app this matters, because being recommended means being heard and paid.
 - **Small catalog:** with only 20 songs, "the next most diverse" song is sometimes not very good. A bigger catalog would let diversity help without hurting fit.
+
+---
+
+## Visual Summary Table (Challenge 4)
+
+**What task did you give the agent?**
+
+Make the terminal output easier to read with a formatted table that still shows *why* each song scored what it did.
+
+**Prompt used:**
+
+> Suggest a way to display my top recommendations in the terminal as a table, using tabulate or simple ASCII formatting. The table **must include the reasons for each score**, one reason per line inside the cell rather than squeezed onto one line, along with the rank, song title, artist and final score. Keep the current detailed output as the default and add a `--table` flag. Avoid a new dependency if plain Python can do it cleanly.
+
+**tabulate or plain ASCII?** The agent first checked whether `tabulate` was installed. It wasn't, in either the system Python or `.venv`. Using it would have meant adding it to `requirements.txt`, and `python -m src.main --table` would crash for anyone who skipped `pip install`. Because each cell is just a list of lines, a small ASCII builder handles multi-line reasons in about 20 lines with no new dependency, so the agent went with that.
+
+**What did the agent generate or change?**
+
+| File | Change |
+|---|---|
+| `src/main.py` | `format_table()`, a generic ASCII table builder where each cell can hold several lines, with right-aligned number columns. `print_recommendation_table()` builds the rows (rank; title plus "by artist"; score; one reason per line, wrapped at 48 characters) and adds a "Top pick" summary line with the lead over #2. A new `--table` flag works with `--mode` and `--diverse`. |
+| `README.md` | Added a sample table under Sample Recommendation Output. |
+
+**Sample output:**
+
+```
+High-Energy Pop
+Profile: genre='pop', mood='happy', energy=0.8
++---+------------------+-------+------------------------------------+
+| # | Song             | Score | Reasons                            |
++===+==================+=======+====================================+
+| 1 | Sunrise City     |  4.96 | genre matches pop (+2.0)           |
+|   | by Neon Echo     |       | mood matches happy (+1.0)          |
+|   |                  |       | energy 0.82 vs target 0.80 (+1.96) |
++---+------------------+-------+------------------------------------+
+| 2 | Gym Hero         |  3.74 | genre matches pop (+2.0)           |
+|   | by Max Pulse     |       | energy 0.93 vs target 0.80 (+1.74) |
++---+------------------+-------+------------------------------------+
+| 3 | Rooftop Lights   |  2.92 | mood matches happy (+1.0)          |
+|   | by Indigo Parade |       | energy 0.76 vs target 0.80 (+1.92) |
++---+------------------+-------+------------------------------------+
+| 4 | Fuego Lento      |  2.00 | energy 0.80 vs target 0.80 (+2.00) |
+|   | by Los Caminos   |       |                                    |
++---+------------------+-------+------------------------------------+
+| 5 | Concrete Crown   |  1.96 | energy 0.78 vs target 0.80 (+1.96) |
+|   | by K-Verse       |       |                                    |
++---+------------------+-------+------------------------------------+
+Top pick: Sunrise City, 1.22 points ahead of #2
+```
+
+**What did you verify or fix manually?**
+
+- **The default output is unchanged.** Without `--table`, the output is identical to before, so the README and model card samples still match. All 5 tests pass.
+- **Every reason is shown.** Each table lists every reason line that the detailed view prints, including "diversity: …" penalties when `--diverse` is on.
+- **It fits the terminal.** The widest table line across all 12 profiles is 83 characters. Only one long profile line (*Deep-Cut Study Session*) is wider, and it simply wraps.
+- **The summary line is correct.** 4.96 − 3.74 = 1.22 for High-Energy Pop.
+- **One limitation:** the column widths adjust to the longest text in each table, so different profiles' tables have slightly different widths.
