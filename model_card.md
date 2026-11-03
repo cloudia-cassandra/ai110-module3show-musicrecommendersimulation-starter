@@ -54,6 +54,16 @@ This is a **content-based** approach. It looks only at what the songs are like, 
 
 For the "closeness" rules, the points are the weight × (1 − the gap between the song and the target). For example, with a target energy of 0.40, a song at 0.35 gets 2.0 × 0.95 = 1.90 points, and a song at 0.91 gets only 0.98.
 
+**Advanced features (optional):** a listener can also set any of these. If they don't, these rules are skipped and the maximum stays 6.5. With all of them set, the maximum is 10.0.
+
+| Rule | Points | How it works |
+|---|---|---|
+| Popularity is close to the target (0–100) | up to +0.5 | Mainstream hits vs. deep cuts |
+| Release decade is close to the target | up to +0.75 | Full points for the same decade, zero at 30+ years away |
+| Detailed mood tags match (e.g. "rainy", "heartbroken") | +0.5 each, up to +1.0 | Each song has 3 tags, which are more specific than its one mood |
+| Fits the instrumental / vocal preference | up to +0.75 | For listeners who want no vocals (studying) or want vocals |
+| Speechiness is close to the target | up to +0.5 | How much rapping or talking is in the song |
+
 **Choosing what to recommend:** every song is scored, the list is sorted from highest to lowest, and the top 5 are shown. Each one comes with an explanation listing exactly which rules earned it points.
 
 **Changes from the starter logic:** the starter recipe (+2.0 genre, +1.0 mood, energy closeness) is kept as the core. I added valence and acoustic fit to give the score more nuance. Tempo and danceability are not scored, because in this catalog they mostly repeat what energy already measures.

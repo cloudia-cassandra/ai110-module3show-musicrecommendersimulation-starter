@@ -59,3 +59,22 @@ def test_explain_recommendation_returns_non_empty_string():
     explanation = rec.explain_recommendation(user, song)
     assert isinstance(explanation, str)
     assert explanation.strip() != ""
+
+
+def test_advanced_features_add_points_and_reasons():
+    rec = make_small_recommender()
+    song = rec.songs[0]
+    song.mood_tags = ["sunny", "uplifting"]
+    song.popularity = 80
+    base = UserProfile(favorite_genre="pop", favorite_mood="happy", target_energy=0.8, likes_acoustic=False)
+    advanced = UserProfile(
+        favorite_genre="pop", favorite_mood="happy", target_energy=0.8, likes_acoustic=False,
+        mood_tags=["sunny"], target_popularity=80,
+    )
+
+    base_text = rec.explain_recommendation(base, song)
+    advanced_text = rec.explain_recommendation(advanced, song)
+
+    assert "mood tags sunny" in advanced_text
+    assert "popularity 80" in advanced_text
+    assert float(advanced_text.split()[1].rstrip(":")) > float(base_text.split()[1].rstrip(":"))

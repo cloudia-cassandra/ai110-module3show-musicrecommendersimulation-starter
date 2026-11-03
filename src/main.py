@@ -32,6 +32,19 @@ EDGE_CASE_PROFILES = {
     "Empty Profile": {},
 }
 
+# Profiles that use the advanced features (popularity, decade, mood tags, instrumentalness, speechiness)
+ADVANCED_PROFILES = {
+    "Deep-Cut Study Session": {
+        "genre": "lofi", "mood": "chill", "energy": 0.4, "likes_acoustic": True,
+        "wants_instrumental": True, "popularity": 30, "mood_tags": ["rainy", "calm"],
+    },
+    "Throwback Heartbreak": {
+        "mood": "melancholic", "energy": 0.35, "decade": 1960,
+        "mood_tags": ["heartbroken", "rainy"], "wants_instrumental": False,
+    },
+    "Rap Hits": {"genre": "hip-hop", "energy": 0.8, "speechiness": 0.3, "popularity": 80},
+}
+
 
 def print_recommendations(name: str, user_prefs: dict, recommendations: list) -> None:
     """Prints each recommendation with its title, score, and scoring reasons."""
@@ -57,7 +70,7 @@ def print_recommendations(name: str, user_prefs: dict, recommendations: list) ->
 def main() -> None:
     songs = load_songs("data/songs.csv")
 
-    for name, user_prefs in {**PROFILES, **EDGE_CASE_PROFILES}.items():
+    for name, user_prefs in {**PROFILES, **EDGE_CASE_PROFILES, **ADVANCED_PROFILES}.items():
         recommendations = recommend_songs(user_prefs, songs, k=5)
         print_recommendations(name, user_prefs, recommendations)
 

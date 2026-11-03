@@ -1,6 +1,6 @@
 import csv
 from typing import List, Dict, Tuple, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 # Scoring weights (see model_card.md for the reasoning behind each)
 GENRE_WEIGHT = 2.0
@@ -8,6 +8,15 @@ MOOD_WEIGHT = 1.0
 ENERGY_WEIGHT = 2.0
 VALENCE_WEIGHT = 1.0
 ACOUSTIC_WEIGHT = 0.5
+
+# Advanced feature weights, kept small so they refine rather than override the core recipe
+POPULARITY_WEIGHT = 0.5
+DECADE_WEIGHT = 0.75
+DECADE_TOLERANCE = 30       # songs 30+ years from the target decade earn 0
+TAG_POINTS = 0.5            # per matching mood tag
+TAG_MAX = 1.0
+INSTRUMENTAL_WEIGHT = 0.75
+SPEECHINESS_WEIGHT = 0.5
 
 @dataclass
 class Song:
@@ -25,6 +34,11 @@ class Song:
     valence: float
     danceability: float
     acousticness: float
+    popularity: int = 50
+    release_decade: int = 2020
+    mood_tags: List[str] = field(default_factory=list)
+    instrumentalness: float = 0.0
+    speechiness: float = 0.0
 
 @dataclass
 class UserProfile:
@@ -37,6 +51,11 @@ class UserProfile:
     target_energy: float
     likes_acoustic: bool
     target_valence: Optional[float] = None
+    target_popularity: Optional[int] = None
+    target_decade: Optional[int] = None
+    mood_tags: Optional[List[str]] = None
+    wants_instrumental: Optional[bool] = None
+    target_speechiness: Optional[float] = None
 
     def to_prefs(self) -> Dict:
         """Converts the profile into the dict format used by score_song."""
@@ -46,6 +65,11 @@ class UserProfile:
             "energy": self.target_energy,
             "valence": self.target_valence,
             "likes_acoustic": self.likes_acoustic,
+            "popularity": self.target_popularity,
+            "decade": self.target_decade,
+            "mood_tags": self.mood_tags,
+            "wants_instrumental": self.wants_instrumental,
+            "speechiness": self.target_speechiness,
         }
 
 class Recommender:
@@ -78,13 +102,18 @@ def load_songs(csv_path: str) -> List[Dict]:
     Loads songs from a CSV file.
     Required by src/main.py
     """
-    float_fields = ["energy", "tempo_bpm", "valence", "danceability", "acousticness"]
+    int_fields = ["id", "popularity", "release_decade"]
+    float_fields = ["energy", "tempo_bpm", "valence", "danceability", "acousticness",
+                    "instrumentalness", "speechiness"]
     songs = []
     with open(csv_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            row["id"] = int(row["id"])
-            for field in float_fields:
-                row[field] = float(row[field])
+            for name in int_fields:
+                row[name] = int(row[name])
+            for name in float_fields:
+                row[name] = float(row[name])
+            # "cozy;rainy;calm" -> ["cozy", "rainy", "calm"]
+            row["mood_tags"] = [tag.strip().lower() for tag in row["mood_tags"].split(";") if tag.strip()]
             songs.append(row)
     print(f"Loaded {len(songs)} songs from {csv_path}")
     return songs
@@ -127,6 +156,43 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
         score += points
         label = "acoustic" if likes_acoustic else "non-acoustic"
         reasons.append(f"{label} fit (+{points:.2f})")
+
+    # Advanced features: each is skipped unless the user sets a preference for it
+    target_popularity = user_prefs.get("popularity")
+    if target_popularity is not None:
+        points = POPULARITY_WEIGHT * (1 - abs(target_popularity - song["popularity"]) / 100)
+        score += points
+        reasons.append(f"popularity {song['popularity']} vs target {target_popularity} (+{points:.2f})")
+
+    target_decade = user_prefs.get("decade")
+    if target_decade is not None:
+        closeness = max(0.0, 1 - abs(target_decade - song["release_decade"]) / DECADE_TOLERANCE)
+        points = DECADE_WEIGHT * closeness
+        score += points
+        reasons.append(f"from the {song['release_decade']}s vs target {target_decade}s (+{points:.2f})")
+
+    wanted_tags = user_prefs.get("mood_tags")
+    if wanted_tags:
+        wanted = {tag.strip().lower() for tag in wanted_tags}
+        matched = [tag for tag in song["mood_tags"] if tag in wanted]
+        if matched:
+            points = min(TAG_MAX, TAG_POINTS * len(matched))
+            score += points
+            reasons.append(f"mood tags {', '.join(matched)} (+{points:.2f})")
+
+    wants_instrumental = user_prefs.get("wants_instrumental")
+    if wants_instrumental is not None:
+        fit = song["instrumentalness"] if wants_instrumental else 1 - song["instrumentalness"]
+        points = INSTRUMENTAL_WEIGHT * fit
+        score += points
+        label = "instrumental" if wants_instrumental else "vocal"
+        reasons.append(f"{label} fit (+{points:.2f})")
+
+    target_speechiness = user_prefs.get("speechiness")
+    if target_speechiness is not None:
+        points = SPEECHINESS_WEIGHT * (1 - abs(target_speechiness - song["speechiness"]))
+        score += points
+        reasons.append(f"speechiness {song['speechiness']:.2f} vs target {target_speechiness:.2f} (+{points:.2f})")
 
     return score, reasons
 

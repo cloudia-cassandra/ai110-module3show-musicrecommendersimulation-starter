@@ -31,6 +31,7 @@ Real-world platforms like Spotify and YouTube combine two approaches. **Collabor
 - `acousticness` (0–1) — acoustic vs. electronic texture
 - `title`, `artist`, `id` — display only
 - `tempo_bpm`, `danceability` — loaded but not scored, because they mostly repeat energy in this dataset
+- **Advanced (optional):** `popularity` (0–100), `release_decade`, `mood_tags` (3 detailed tags, e.g. `cozy;rainy;calm`), `instrumentalness` (0–1) and `speechiness` (0–1). Each one is scored only if the user sets a matching preference. See the model card for the points.
 
 **`UserProfile`**
 - `favorite_genre`
