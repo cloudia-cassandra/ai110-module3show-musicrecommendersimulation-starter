@@ -17,17 +17,45 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+Real-world platforms like Spotify and YouTube combine two approaches. **Collaborative filtering** learns from millions of users' behavior: plays, skips, likes and playlist adds ("people who liked this also liked that"). **Content-based filtering** compares the songs themselves: genre, mood, energy and other audio features. Collaborative filtering does most of the work at scale, while content-based filtering covers new songs and new users with no history. My simulation has no listening history, so it is purely **content-based**. It scores how closely each song's attributes match a user's taste profile, prioritizing **genre first, then energy, then mood**, and uses valence and acousticness to fine-tune the results.
 
-Some prompts to answer:
+**Genre vs. mood weight:** a matching genre is worth **2.0 points** and a matching mood **1.0 point**. Genre is the most stable part of someone's taste: a rock fan rarely wants jazz, whatever the mood. Mood changes with the moment, and it mostly repeats what energy and valence already measure (for example, "chill" = low energy). The trade-off is that a strong genre match can outrank a better vibe match. "Gym Hero" (pop, intense) beats "Rooftop Lights" (indie pop, happy) for a happy pop fan, because "indie pop" doesn't count as "pop."
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+### Features used
 
-You can include a simple diagram or bullet list if helpful.
+**`Song`**
+- `genre` — compared to the user's favorite genre
+- `mood` — compared to the user's favorite mood
+- `energy` (0–1) — how calm or intense the song is
+- `valence` (0–1) — how dark or bright the song sounds
+- `acousticness` (0–1) — acoustic vs. electronic texture
+- `title`, `artist`, `id` — display only
+- `tempo_bpm`, `danceability` — loaded but not scored, because they mostly repeat energy in this dataset
+
+**`UserProfile`**
+- `favorite_genre`
+- `favorite_mood`
+- `target_energy` (0–1)
+- `target_valence` (0–1, optional)
+- `likes_acoustic` (True/False)
+
+### Scoring rule (one song)
+
+Numerical features reward **closeness to the target**, not simply higher values, using `1 − |target − value|`:
+
+```
+score = 2.0 × (genre matches)
+      + 1.0 × (mood matches)
+      + 2.0 × (1 − |target_energy − energy|)
+      + 1.0 × (1 − |target_valence − valence|)   # only if target_valence is set
+      + 0.5 × acoustic_fit                        # acousticness if likes_acoustic, else 1 − acousticness
+```
+
+The maximum score is 6.5. Each part of the score is recorded as a reason, so every recommendation can be explained.
+
+### Ranking rule (the list)
+
+Every song in the catalog is scored, the songs are sorted from highest to lowest, and the top `k` (default 5) are returned with their scores and explanations.
 
 ---
 
