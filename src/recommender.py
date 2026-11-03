@@ -2,21 +2,40 @@ import csv
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass, asdict, field
 
-# Scoring weights (see model_card.md for the reasoning behind each)
-GENRE_WEIGHT = 2.0
-MOOD_WEIGHT = 1.0
-ENERGY_WEIGHT = 2.0
-VALENCE_WEIGHT = 1.0
-ACOUSTIC_WEIGHT = 0.5
-
-# Advanced feature weights, kept small so they refine rather than override the core recipe
-POPULARITY_WEIGHT = 0.5
-DECADE_WEIGHT = 0.75
 DECADE_TOLERANCE = 30       # songs 30+ years from the target decade earn 0
-TAG_POINTS = 0.5            # per matching mood tag
-TAG_MAX = 1.0
-INSTRUMENTAL_WEIGHT = 0.75
-SPEECHINESS_WEIGHT = 0.5
+MAX_TAGS_COUNTED = 2        # mood tag points stop after this many matches
+
+@dataclass(frozen=True)
+class ScoringMode:
+    """A ranking strategy: one set of weights that score_song can be run with."""
+    name: str
+    description: str
+    genre: float = 2.0
+    mood: float = 1.0
+    energy: float = 2.0
+    valence: float = 1.0
+    acoustic: float = 0.5
+    # Advanced feature weights, kept small so they refine rather than override the core recipe
+    popularity: float = 0.5
+    decade: float = 0.75
+    tag: float = 0.5            # per matching mood tag
+    instrumental: float = 0.75
+    speechiness: float = 0.5
+
+# Built-in strategies (see model_card.md for the reasoning behind the weights)
+GENRE_FIRST = ScoringMode(
+    "genre-first", "Genre is the strongest signal; the original recipe.",
+)
+MOOD_FIRST = ScoringMode(
+    "mood-first", "Mood and feel outrank genre; good for 'I want something sad' listeners.",
+    genre=1.0, mood=2.0, valence=1.5, tag=0.75,
+)
+ENERGY_FOCUSED = ScoringMode(
+    "energy-focused", "Energy level decides; labels only break ties.",
+    genre=0.5, mood=0.5, energy=4.0,
+)
+
+MODES = {mode.name: mode for mode in (GENRE_FIRST, MOOD_FIRST, ENERGY_FOCUSED)}
 
 @dataclass
 class Song:
@@ -77,22 +96,23 @@ class Recommender:
     OOP implementation of the recommendation logic.
     Required by tests/test_recommender.py
     """
-    def __init__(self, songs: List[Song]):
+    def __init__(self, songs: List[Song], mode: ScoringMode = GENRE_FIRST):
         self.songs = songs
+        self.mode = mode
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
         """Returns the top k songs for the user, ranked by score_song from highest to lowest."""
         prefs = user.to_prefs()
         ranked = sorted(
             self.songs,
-            key=lambda song: score_song(prefs, asdict(song))[0],
+            key=lambda song: score_song(prefs, asdict(song), self.mode)[0],
             reverse=True,
         )
         return ranked[:k]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
         """Returns a readable string with the song's score and the reasons behind it."""
-        score, reasons = score_song(user.to_prefs(), asdict(song))
+        score, reasons = score_song(user.to_prefs(), asdict(song), self.mode)
         if not reasons:
             return f"Score {score:.2f}: no strong matches with your preferences"
         return f"Score {score:.2f}: " + "; ".join(reasons)
@@ -118,9 +138,9 @@ def load_songs(csv_path: str) -> List[Dict]:
     print(f"Loaded {len(songs)} songs from {csv_path}")
     return songs
 
-def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
+def score_song(user_prefs: Dict, song: Dict, mode: ScoringMode = GENRE_FIRST) -> Tuple[float, List[str]]:
     """
-    Scores a single song against user preferences.
+    Scores a single song against user preferences, using the weights of the given mode.
     Required by recommend_songs() and src/main.py
     """
     score = 0.0
@@ -128,31 +148,31 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
 
     genre = user_prefs.get("genre")
     if genre and song["genre"].lower() == genre.lower():
-        score += GENRE_WEIGHT
-        reasons.append(f"genre matches {genre} (+{GENRE_WEIGHT:.1f})")
+        score += mode.genre
+        reasons.append(f"genre matches {genre} (+{mode.genre:.1f})")
 
     mood = user_prefs.get("mood")
     if mood and song["mood"].lower() == mood.lower():
-        score += MOOD_WEIGHT
-        reasons.append(f"mood matches {mood} (+{MOOD_WEIGHT:.1f})")
+        score += mode.mood
+        reasons.append(f"mood matches {mood} (+{mode.mood:.1f})")
 
     # Closeness scores: 1.0 for an exact match, falling toward 0 as the gap grows
     target_energy = user_prefs.get("energy")
     if target_energy is not None:
-        points = ENERGY_WEIGHT * (1 - abs(target_energy - song["energy"]))
+        points = mode.energy * (1 - abs(target_energy - song["energy"]))
         score += points
         reasons.append(f"energy {song['energy']:.2f} vs target {target_energy:.2f} (+{points:.2f})")
 
     target_valence = user_prefs.get("valence")
     if target_valence is not None:
-        points = VALENCE_WEIGHT * (1 - abs(target_valence - song["valence"]))
+        points = mode.valence * (1 - abs(target_valence - song["valence"]))
         score += points
         reasons.append(f"valence {song['valence']:.2f} vs target {target_valence:.2f} (+{points:.2f})")
 
     likes_acoustic = user_prefs.get("likes_acoustic")
     if likes_acoustic is not None:
         fit = song["acousticness"] if likes_acoustic else 1 - song["acousticness"]
-        points = ACOUSTIC_WEIGHT * fit
+        points = mode.acoustic * fit
         score += points
         label = "acoustic" if likes_acoustic else "non-acoustic"
         reasons.append(f"{label} fit (+{points:.2f})")
@@ -160,14 +180,14 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     # Advanced features: each is skipped unless the user sets a preference for it
     target_popularity = user_prefs.get("popularity")
     if target_popularity is not None:
-        points = POPULARITY_WEIGHT * (1 - abs(target_popularity - song["popularity"]) / 100)
+        points = mode.popularity * (1 - abs(target_popularity - song["popularity"]) / 100)
         score += points
         reasons.append(f"popularity {song['popularity']} vs target {target_popularity} (+{points:.2f})")
 
     target_decade = user_prefs.get("decade")
     if target_decade is not None:
         closeness = max(0.0, 1 - abs(target_decade - song["release_decade"]) / DECADE_TOLERANCE)
-        points = DECADE_WEIGHT * closeness
+        points = mode.decade * closeness
         score += points
         reasons.append(f"from the {song['release_decade']}s vs target {target_decade}s (+{points:.2f})")
 
@@ -176,34 +196,35 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
         wanted = {tag.strip().lower() for tag in wanted_tags}
         matched = [tag for tag in song["mood_tags"] if tag in wanted]
         if matched:
-            points = min(TAG_MAX, TAG_POINTS * len(matched))
+            points = mode.tag * min(len(matched), MAX_TAGS_COUNTED)
             score += points
             reasons.append(f"mood tags {', '.join(matched)} (+{points:.2f})")
 
     wants_instrumental = user_prefs.get("wants_instrumental")
     if wants_instrumental is not None:
         fit = song["instrumentalness"] if wants_instrumental else 1 - song["instrumentalness"]
-        points = INSTRUMENTAL_WEIGHT * fit
+        points = mode.instrumental * fit
         score += points
         label = "instrumental" if wants_instrumental else "vocal"
         reasons.append(f"{label} fit (+{points:.2f})")
 
     target_speechiness = user_prefs.get("speechiness")
     if target_speechiness is not None:
-        points = SPEECHINESS_WEIGHT * (1 - abs(target_speechiness - song["speechiness"]))
+        points = mode.speechiness * (1 - abs(target_speechiness - song["speechiness"]))
         score += points
         reasons.append(f"speechiness {song['speechiness']:.2f} vs target {target_speechiness:.2f} (+{points:.2f})")
 
     return score, reasons
 
-def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
+def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5,
+                    mode: ScoringMode = GENRE_FIRST) -> List[Tuple[Dict, float, str]]:
     """
     Functional implementation of the recommendation logic.
     Required by src/main.py
     """
     scored = []
     for song in songs:
-        score, reasons = score_song(user_prefs, song)
+        score, reasons = score_song(user_prefs, song, mode)
         scored.append((song, score, "; ".join(reasons)))
     scored.sort(key=lambda item: item[1], reverse=True)
     return scored[:k]

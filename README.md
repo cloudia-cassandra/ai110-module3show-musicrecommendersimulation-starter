@@ -96,6 +96,18 @@ The maximum score is **6.5**. Each part of the score is recorded as a reason, so
 
 **Example:** for a lofi / chill / energy 0.40 / valence 0.60 / acoustic listener, *Library Rain* scores 2.0 + 1.0 + 1.90 + 1.00 + 0.43 = **6.33** (rank 1), and *Storm Runner* (rock, intense) scores **1.91** (rank 17).
 
+### Scoring modes
+
+The same rules can run with three different weight sets ("strategies"):
+
+| Mode | Genre | Mood | Energy | Other changes | Best for |
+|---|---|---|---|---|---|
+| `genre-first` *(default)* | 2.0 | 1.0 | 2.0 | — | Listeners loyal to one genre |
+| `mood-first` | 1.0 | 2.0 | 2.0 | valence 1.5, mood tags 0.75 each | "I want something sad / happy" listeners |
+| `energy-focused` | 0.5 | 0.5 | 4.0 | — | Workouts, studying, matching an activity |
+
+Switch modes with `python -m src.main --mode mood-first`, or change `DEFAULT_MODE` in `src/main.py`.
+
 ### Expected biases
 
 - **Over-prioritizes genre.** A +2.0 genre match can outweigh a mismatched vibe. A "sad rocker" gets *Storm Runner* (intense, energy 0.91) at #2, ahead of calm, sad songs from other genres.

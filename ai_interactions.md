@@ -60,12 +60,43 @@ Things I noticed that need human judgment:
 
 **Which design pattern did you use?**
 
-<!-- e.g., Strategy, Factory, Observer, etc. -->
+A lightweight **Strategy pattern**. Each ranking mode is an interchangeable "strategy" object that gets passed into the scoring code. The scoring code doesn't know or care which mode it's running; it just uses the weights it's handed.
 
 **How did AI help you brainstorm or implement it?**
 
-<!-- Describe the conversation or suggestions that led to your decision -->
+I gave Claude Code the Challenge 2 prompt ("build two or more ranking strategies… brainstorm a design pattern like a simple Strategy pattern that keeps your code modular") with `recommender.py` attached. It compared four options:
+
+| Option | Idea | Verdict |
+|---|---|---|
+| `if mode == "mood-first": ...` inside `score_song` | One function with branches for each mode | ❌ Every new mode means editing the scoring function, and the branches repeat the same math |
+| One function per mode (`score_genre_first`, `score_mood_first`, …) | Separate scoring functions | ❌ Copies all 10 rules into each function, so a bug fix has to be made 3 times |
+| A class hierarchy (`ScoringStrategy` base class + subclasses) | Classic object-oriented Strategy | ⚠️ Works, but it's heavy when the modes only differ by numbers |
+| **A weights object passed into one scoring function** | Each mode is a frozen dataclass of weights | ✅ **Chosen:** the rules are written once, and each mode only lists what it changes |
+
+The key point the AI raised: **my modes don't score differently, they *weight* differently.** All three use the same 10 rules (genre match, energy closeness, and so on); only the points change. So the strategy can just be data, a set of weights, instead of a separate algorithm. If a future mode needed a truly different rule (for example, a diversity penalty), that's when switching to a class hierarchy would make sense.
+
+The AI also suggested:
+- Making the modes **frozen** (read-only), so a mode can't be accidentally changed while songs are being scored.
+- Giving every mode the **same defaults as the original recipe**, so each mode only lists the weights it changes.
+- Keeping **genre-first as the default everywhere**, so existing code, tests and documented outputs keep working without changes.
 
 **How does the pattern appear in your final code?**
 
-<!-- Point to the relevant class or method -->
+- **The strategy:** `ScoringMode` in `src/recommender.py`, a frozen dataclass with one weight per rule plus a `name` and `description`.
+- **The concrete strategies:** `GENRE_FIRST` (the original 2.0 / 1.0 recipe), `MOOD_FIRST` (mood 2.0, genre 1.0, more weight on valence and mood tags) and `ENERGY_FOCUSED` (energy 4.0, genre and mood 0.5 each).
+- **The registry:** `MODES`, a dict from mode name to mode object, which is what `main.py` uses to look modes up.
+- **The context that uses the strategy:** `score_song(user_prefs, song, mode)`, `recommend_songs(..., mode=...)` and `Recommender(songs, mode=...)`. Each one defaults to `GENRE_FIRST`.
+- **Switching modes:** in `main.py`, change `DEFAULT_MODE` or run `python -m src.main --mode mood-first`. A misspelled mode name is rejected with a list of valid choices.
+
+Adding a fourth mode takes one line plus adding it to `MODES`, with no changes to the scoring code:
+```python
+DISCOVERY = ScoringMode("discovery", "Favors less popular songs.", popularity=2.0)
+```
+
+**Verification:**
+- **4 tests pass.** That includes a new test where the same user gets a lofi song first in genre-first mode and a happy pop song first in mood-first mode.
+- **Genre-first output is identical** to the previous version for all 12 profiles; the only addition is a "Scoring mode" line at the top.
+- **The modes behave differently in the expected ways:**
+  - *High-Energy Pop:* genre-first ranks *Gym Hero* #2, and mood-first and energy-focused both move the happier *Rooftop Lights* up to #2.
+  - *Energetic but Sad:* energy-focused drops the quiet *Paper Hearts* from #1 and puts loud songs first.
+- **One questionable result:** in mood-first mode, *Library Rain* (instrumental lofi) climbs to #3 for *Throwback Heartbreak* on its "rainy" tag alone. That's a sign the bigger tag bonus (0.75) may be too strong.

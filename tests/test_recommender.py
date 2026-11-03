@@ -78,3 +78,17 @@ def test_advanced_features_add_points_and_reasons():
     assert "mood tags sunny" in advanced_text
     assert "popularity 80" in advanced_text
     assert float(advanced_text.split()[1].rstrip(":")) > float(base_text.split()[1].rstrip(":"))
+
+
+def test_scoring_modes_change_the_ranking():
+    from src.recommender import GENRE_FIRST, MOOD_FIRST
+
+    # Genre points at the lofi song, mood points at the pop song, and energy ties them
+    user = UserProfile(favorite_genre="lofi", favorite_mood="happy", target_energy=0.6, likes_acoustic=False)
+    songs = make_small_recommender().songs
+
+    genre_first = Recommender(songs, mode=GENRE_FIRST).recommend(user, k=1)[0]
+    mood_first = Recommender(songs, mode=MOOD_FIRST).recommend(user, k=1)[0]
+
+    assert genre_first.genre == "lofi"
+    assert mood_first.mood == "happy"

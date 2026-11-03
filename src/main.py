@@ -9,11 +9,17 @@ You will implement the functions in recommender.py:
 - recommend_songs
 
 Run from the project root with: python -m src.main
+Pick a scoring mode with:        python -m src.main --mode mood-first
 """
 
-from src.recommender import load_songs, recommend_songs
+import argparse
+
+from src.recommender import MODES, GENRE_FIRST, load_songs, recommend_songs
 
 WIDTH = 60
+
+# Change this to switch the default mode: "genre-first", "mood-first" or "energy-focused"
+DEFAULT_MODE = GENRE_FIRST.name
 
 # Distinct listener types the recommender should handle well
 PROFILES = {
@@ -68,10 +74,15 @@ def print_recommendations(name: str, user_prefs: dict, recommendations: list) ->
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Music Recommender Simulation")
+    parser.add_argument("--mode", choices=MODES, default=DEFAULT_MODE, help="ranking strategy to use")
+    mode = MODES[parser.parse_args().mode]
+
     songs = load_songs("data/songs.csv")
+    print(f"Scoring mode: {mode.name} ({mode.description})")
 
     for name, user_prefs in {**PROFILES, **EDGE_CASE_PROFILES, **ADVANCED_PROFILES}.items():
-        recommendations = recommend_songs(user_prefs, songs, k=5)
+        recommendations = recommend_songs(user_prefs, songs, k=5, mode=mode)
         print_recommendations(name, user_prefs, recommendations)
 
 
