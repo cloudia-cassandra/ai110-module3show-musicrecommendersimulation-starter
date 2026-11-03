@@ -15,13 +15,30 @@ from src.recommender import load_songs, recommend_songs
 
 WIDTH = 60
 
+# Distinct listener types the recommender should handle well
+PROFILES = {
+    "High-Energy Pop": {"genre": "pop", "mood": "happy", "energy": 0.8},
+    "Chill Lofi": {"genre": "lofi", "mood": "chill", "energy": 0.35, "likes_acoustic": True},
+    "Deep Intense Rock": {"genre": "rock", "mood": "intense", "energy": 0.92, "valence": 0.4, "likes_acoustic": False},
+}
 
-def print_recommendations(user_prefs: dict, recommendations: list) -> None:
+# Adversarial profiles designed to trick the scoring logic
+EDGE_CASE_PROFILES = {
+    "Conflicting: Energetic but Sad": {"genre": "folk", "mood": "sad", "energy": 0.9},
+    "Acoustic Headbanger": {"genre": "metal", "mood": "angry", "energy": 0.95, "likes_acoustic": True},
+    "Genre Not in Catalog": {"genre": "k-pop", "mood": "happy", "energy": 0.7},
+    "Messy Input": {"genre": " Pop ", "mood": "HAPPY", "energy": 0.8},
+    "Out-of-Range Energy": {"genre": "classical", "mood": "peaceful", "energy": 1.5},
+    "Empty Profile": {},
+}
+
+
+def print_recommendations(name: str, user_prefs: dict, recommendations: list) -> None:
     """Prints each recommendation with its title, score, and scoring reasons."""
-    profile = ", ".join(f"{key}={value}" for key, value in user_prefs.items())
+    profile = ", ".join(f"{key}={value!r}" for key, value in user_prefs.items()) or "(none)"
     print()
     print("=" * WIDTH)
-    print(f"Top {len(recommendations)} recommendations")
+    print(f"{name}: top {len(recommendations)} recommendations")
     print(f"Profile: {profile}")
     print("=" * WIDTH)
 
@@ -30,21 +47,19 @@ def print_recommendations(user_prefs: dict, recommendations: list) -> None:
         print(f"{rank}. {song['title']} by {song['artist']}")
         print(f"   Score: {score:.2f}")
         print("   Reasons:")
-        for reason in explanation.split("; "):
+        reasons = explanation.split("; ") if explanation else ["no matching preferences"]
+        for reason in reasons:
             print(f"     - {reason}")
 
     print()
-    print("=" * WIDTH)
 
 
 def main() -> None:
     songs = load_songs("data/songs.csv")
 
-    # Default profile: an upbeat pop listener
-    user_prefs = {"genre": "pop", "mood": "happy", "energy": 0.8}
-
-    recommendations = recommend_songs(user_prefs, songs, k=5)
-    print_recommendations(user_prefs, recommendations)
+    for name, user_prefs in {**PROFILES, **EDGE_CASE_PROFILES}.items():
+        recommendations = recommend_songs(user_prefs, songs, k=5)
+        print_recommendations(name, user_prefs, recommendations)
 
 
 if __name__ == "__main__":

@@ -205,6 +205,21 @@ I kept energy (×2.0), valence (×1.0) and acoustic (×0.5) fixed and changed on
 
 **Takeaway:** with genre worth 2.0, a genre match can outweigh the vibe. The sad rocker gets Storm Runner (energy 0.91, intense) at #2 even though they asked for calm, sad music. Making mood worth more gives lists that fit the vibe better, but the user's named genre mostly disappears. I kept 2.0 : 1.0 as the final recipe because it respects stated genre loyalty, and I note this trade-off as a known limitation.
 
+### Weight shift: energy ×2, genre ×½
+
+I changed `ENERGY_WEIGHT` from 2.0 to 4.0 and `GENRE_WEIGHT` from 2.0 to 1.0, then reran all 9 profiles. **Math check:** the maximum score becomes 7.5 (1 + 1 + 4 + 1 + 0.5). Scores for valid inputs stayed between 0 and 7.5, each song's reasons still add up to its score, and both tests pass.
+
+| Profile | Before (genre 2, energy 2) | After (genre 1, energy 4) | Verdict |
+|---|---|---|---|
+| High-Energy Pop | Sunrise City, **Gym Hero**, Rooftop Lights | Sunrise City, **Rooftop Lights**, Gym Hero | ✅ More accurate: the happy song now beats the intense one |
+| Chill Lofi | Library Rain, Midnight Coding, Focus Flow, Spacewalk Thoughts, Coffee Shop Stories | same order; Spacewalk Thoughts almost ties Focus Flow (5.18 vs 5.19) | ➖ Same |
+| Deep Intense Rock | …, Concrete Crown, **Night Drive Loop** | …, **Neon Euphoria**, Concrete Crown | ⚠️ Different: a euphoric EDM track enters on energy alone |
+| Energetic but Sad | **Paper Hearts**, then 4 loud songs | Storm Runner, Gym Hero, Neon Euphoria, Iron Tempest, **Sunrise City** | ⚠️ Different, not better: the only sad song drops out entirely, and a *happy* song enters |
+| Out-of-Range Energy (1.5) | Moonlit Prelude #1 | Moonlit Prelude gone; loud songs fill the list | ❌ The negative-score bug now does twice the damage |
+| Other 4 profiles | — | same songs in the same order | ➖ Same |
+
+**Takeaway: mostly *different*, not more accurate.** Halving genre fixed the one case where genre was clearly too strong (Gym Hero over Rooftop Lights). But with energy now worth 53% of the maximum score, high-energy lists drift toward the same loud songs (Storm Runner, Gym Hero, Neon Euphoria, Iron Tempest) whatever genre or mood the user named. The "sad" preference is now ignored instead of overruling everything. The extremes swapped which preference gets ignored, rather than balancing them.
+
 ---
 
 ## Limitations and Risks
