@@ -113,11 +113,17 @@ Paste a sample of your recommender's output here as a text block so a reader can
 
 ## Experiments You Tried
 
-Use this section to document the experiments you ran. For example:
+### Genre vs. mood weight
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+I kept energy (×2.0), valence (×1.0) and acoustic (×0.5) fixed and changed only the genre and mood bonuses. Top 3 for three listeners:
+
+| Genre : Mood | Happy pop (pop/happy/0.8) | Study lofi (lofi/chill/0.4) | Sad rocker (rock/sad/0.3) |
+|---|---|---|---|
+| **2.0 : 1.0 (final)** | Sunrise City, Gym Hero, Rooftop Lights | Library Rain, Midnight Coding, Focus Flow | Paper Hearts, **Storm Runner**, Gray Morning Blues |
+| 1.5 : 1.5 | Sunrise City, Rooftop Lights, Gym Hero | Library Rain, Midnight Coding, Focus Flow | Paper Hearts, Gray Morning Blues, Storm Runner |
+| 1.0 : 2.0 | Sunrise City, Rooftop Lights, Gym Hero | Library Rain, Midnight Coding, Spacewalk Thoughts | Paper Hearts, Gray Morning Blues, Moonlit Prelude |
+
+**Takeaway:** with genre worth 2.0, a genre match can outweigh the vibe. The sad rocker gets Storm Runner (energy 0.91, intense) at #2 even though they asked for calm, sad music. Making mood worth more gives lists that fit the vibe better, but the user's named genre mostly disappears. I kept 2.0 : 1.0 as the final recipe because it respects stated genre loyalty, and I note this trade-off as a known limitation.
 
 ---
 

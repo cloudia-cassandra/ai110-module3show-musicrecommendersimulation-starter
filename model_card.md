@@ -21,16 +21,25 @@ Prompts:
 
 ## 3. How the Model Works  
 
-Explain your scoring approach in simple language.  
+The recommender gives every song in the catalog a score showing how well it fits one listener's taste, then recommends the highest-scoring songs.
 
-Prompts:  
+**What it knows about the listener:** a favorite genre, a favorite mood, how energetic they want the music (0 = very calm, 1 = very intense), and optionally how bright or dark it should sound (valence) and whether they like acoustic music.
 
-- What features of each song are used (genre, energy, mood, etc.)  
-- What user preferences are considered  
-- How does the model turn those into a score  
-- What changes did you make from the starter logic  
+**Final scoring recipe (maximum 6.5 points):**
 
-Avoid code here. Pretend you are explaining the idea to a friend who does not program.
+| Rule | Points | Why |
+|---|---|---|
+| Song is in the listener's favorite genre | **+2.0** | Genre is the most stable part of someone's taste |
+| Song has the listener's favorite mood | **+1.0** | Mood matters, but it partly repeats energy and valence, so it counts half as much as genre |
+| Energy is close to the listener's target | **up to +2.0** | Full points for an exact match, fewer the further away it is. A song that is *closer* wins, not one that is simply louder or quieter |
+| Valence (bright vs. dark) is close to the target | **up to +1.0** | Tells apart songs with the same energy but a different feel, like "happy" vs. "moody" |
+| Song fits the listener's acoustic preference | **up to +0.5** | Adds texture, but kept small because acoustic songs in this catalog are usually also low-energy |
+
+For the "closeness" rules, the points are the weight × (1 − the gap between the song and the target). For example, with a target energy of 0.40, a song at 0.35 gets 2.0 × 0.95 = 1.90 points, and a song at 0.91 gets only 0.98.
+
+**Choosing what to recommend:** every song is scored, the list is sorted from highest to lowest, and the top 5 are shown. Each one comes with an explanation listing exactly which rules earned it points.
+
+**Changes from the starter logic:** the starter recipe (+2.0 genre, +1.0 mood, energy closeness) is kept as the core. I added valence and acoustic fit to give the score more nuance. Tempo and danceability are not scored, because in this catalog they mostly repeat what energy already measures.
 
 ---
 
