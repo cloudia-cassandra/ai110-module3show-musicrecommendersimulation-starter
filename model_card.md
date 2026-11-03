@@ -2,20 +2,28 @@
 
 ## 1. Model Name  
 
-Give your model a short, descriptive name.  
-Example: **VibeFinder 1.0**  
+**VibeCheck 1.0**: a small recommender that checks how well each song's vibe matches yours.
 
 ---
 
 ## 2. Intended Use  
 
-Describe what your recommender is designed to do and who it is for. 
+**Goal / task:** VibeCheck suggests songs a listener will probably like. You describe your taste (favorite genre, mood and energy level). It scores every song in a 20-song catalog and returns the top 5, with a reason for each pick.
 
-Prompts:  
+**What it assumes about the user:**
+- You can describe your taste in a few words and numbers.
+- You have one favorite genre and one favorite mood.
+- Your taste stays the same. It doesn't change with the time of day or what you're doing.
 
-- What kind of recommendations does it generate  
-- What assumptions does it make about the user  
-- Is this for real users or classroom exploration  
+**Intended use:**
+- Classroom exploration of how recommenders turn data into suggestions.
+- Testing how scoring weights change the results.
+- Learning where bias can show up in a simple system.
+
+**Not intended for:**
+- Real users or a real music app. The catalog is tiny and the song values are made up.
+- Deciding which artists get promoted or paid. The scores reflect my hand-picked weights, not real listener data.
+- Judging what music is "good." The scores measure how well a song fits one profile, nothing more.
 
 ---
 
@@ -54,26 +62,33 @@ For the "closeness" rules, the points are the weight × (1 − the gap between t
 
 ## 4. Data  
 
-Describe the dataset the model uses.  
+**Size:** 20 songs in `data/songs.csv`. The starter file had 10. I added 10 more to cover genres and moods that were missing.
 
-Prompts:  
+**Features for each song:**
+- `genre` and `mood`: text labels
+- `energy`, `valence`, `danceability`, `acousticness`: numbers from 0 to 1
+- `tempo_bpm`: beats per minute (60–176)
+- `title`, `artist`, `id`: for display
 
-- How many songs are in the catalog  
-- What genres or moods are represented  
-- Did you add or remove data  
-- Are there parts of musical taste missing in the dataset  
+**What's covered:**
+- **17 genres:** pop, indie pop, lofi, rock, metal, ambient, jazz, synthwave, folk, hip-hop, classical, r&b, country, edm, reggae, reggaeton and blues.
+- **16 moods:** happy, chill, intense, relaxed, moody, focused, sad, confident, angry, peaceful, romantic, nostalgic, euphoric, carefree, playful and melancholic.
+
+**Limits:**
+- **Most genres have only one song.** Only lofi (3) and pop (2) have more.
+- **The values are estimates.** The songs and artists are made up, and I picked the numbers to fit each genre's typical sound. They weren't measured from real audio.
+- **Energy is uneven.** 9 songs have energy of 0.75 or higher, but only 3 sit between 0.5 and 0.6.
+- **Missing parts of taste:** lyrics, vocals vs. instrumental, language, era, and how popular a song is.
+- **No listening history.** There are no plays, skips or likes, so the system can't learn from other listeners.
 
 ---
 
 ## 5. Strengths  
 
-Where does your system seem to work well  
-
-Prompts:  
-
-- User types for which it gives reasonable results  
-- Any patterns you think your scoring captures correctly  
-- Cases where the recommendations matched your intuition  
+- **Works well for "clear" listeners.** When genre, mood and energy agree (like Chill Lofi or Deep Intense Rock), the top 5 feels right. *Storm Runner* scored 6.35 out of 6.5 for the rock fan.
+- **Closer wins, not louder.** A calm listener gets calm songs and an intense listener gets intense songs. It doesn't just favor whatever has the most energy.
+- **Opposite listeners get opposite lists.** The pop fan and the lofi fan share zero songs in their top 5.
+- **Every pick is explained.** Each song shows exactly which rules earned it points, so you can see *why* it was chosen. Real apps can't do this.
 
 ---
 
@@ -81,11 +96,24 @@ Prompts:
 
 **Weakness: the energy gap quietly treats moderate listeners differently from extreme ones.** Energy points depend on the gap between a song and the listener's target. A listener who wants middle energy (0.5) is never more than 0.47 away from any song, so energy can only separate their options by 45% of the energy weight, while a listener at 0.95 gets a spread of 80%. As a result, moderate listeners' rankings are decided mostly by the genre and mood labels, and extreme listeners' rankings mostly by energy, even though everyone uses the same weights. The catalog makes this worse: 9 of 20 songs have energy of 0.75 or higher and only 3 fall between 0.5 and 0.6, so mid-energy songs like *Velvet Hours*, *Dusty Backroads* and *Island Time* never appeared in the top 5 for any of my 9 test profiles (partly because most of those profiles also targeted extreme energy levels).
 
+**Other patterns I noticed:**
+- **Genre outweighs mood.** A genre match (+2.0) beats a mood match (+1.0). That's why *Gym Hero* (pop, intense) ranks above *Rooftop Lights* (indie pop, happy) for a happy pop fan.
+- **Exact labels only.** "indie pop" doesn't count as "pop," and "focused" doesn't count as "chill."
+- **One-song genres act like a filter.** Most genres have one song, so naming a genre almost locks that song into #1.
+- **Calm, acoustic songs get counted twice.** Low energy and high acousticness usually go together here, so calm listeners get rewarded twice for the same thing.
+- **It never says "I don't know."** Unknown genres, contradictory preferences and empty profiles still get a confident top 5.
+
 ---
 
 ## 7. Evaluation  
 
 I ran 9 user profiles through `python -m src.main` and looked at the top 5 for each. Three are typical listeners whose preferences agree with each other: an upbeat pop fan, a calm lofi studier and a dark, loud rock fan. Six are **adversarial edge cases** designed to trick the scoring logic: preferences that contradict each other, a genre the catalog doesn't have, sloppy typing, an impossible energy value, and no preferences at all. For each one I asked whether the top 5 matched what that listener would actually want, and whether the "Reasons" lines explained the ranking.
+
+**How I tested, in short:**
+- **Profiles:** 9 listeners, 3 typical and 6 edge cases (full output below).
+- **Comparisons:** I compared pairs of profiles to check that the lists moved in the right direction.
+- **Experiments:** I tried different genre vs. mood weights and doubled energy while halving genre. The results are in the README's Experiments section.
+- **Unit tests:** 2 automated tests check that results are sorted by score and that every recommendation has an explanation. Both pass.
 
 | Profile | Type | Result |
 |---|---|---|
@@ -512,23 +540,28 @@ The recommender reads the **label on the box**, not what's inside. *Gym Hero* is
 
 ## 8. Future Work  
 
-Ideas for how you would improve the model next.  
-
-Prompts:  
-
-- Additional features or preferences  
-- Better ways to explain recommendations  
-- Improving diversity among the top results  
-- Handling more complex user tastes  
+1. **Match related labels, not just exact ones.** Give half points for close matches, like "indie pop" for a pop fan, "focused" for a chill fan, or "melancholic" for a sad fan. Also trim extra spaces from the input. This fixes the *Gym Hero* vs. *Rooftop Lights* problem and the messy-input bug.
+2. **Check the input and admit uncertainty.** Keep energy between 0 and 1. If a genre isn't in the catalog, or the profile is empty, tell the user instead of returning random songs.
+3. **Add variety and more songs.** Limit the top 5 to one song per artist or genre, and add more songs, especially mid-energy ones, so every genre has more than one option. Letting a user list several favorite genres (like "lofi or jazz") would also help.
 
 ---
 
 ## 9. Personal Reflection  
 
-A few sentences about your experience.  
+**Biggest learning moment.** It was the "Energetic but Sad" profile. I expected the system to find loud, sad songs. Instead it gave me one quiet folk song and four loud songs that weren't sad at all. When I worked through the math, I saw why: a genre and mood match together are worth 3 points, and the most energy can ever add is 2. So the labels always won. That's when I understood that weights aren't just settings. They decide which part of a person's taste gets ignored when preferences conflict.
 
-Prompts:  
+**How AI tools helped, and when I had to double-check.** AI helped me research how Spotify and YouTube recommend music, design the scoring recipe, write the code, expand the dataset, and come up with edge-case profiles I wouldn't have thought of. But I had to check its work by running the code:
+- The plan predicted *Rooftop Lights* would rank #2 for the pop fan. When I ran it, *Gym Hero* came second. That's how I found the "indie pop ≠ pop" problem.
+- The run command in the README (`python -m src.main`) didn't work at first, because of an import that only worked one way.
+- At one point the AI replaced my default pop profile with a different one. I had to notice it and put it back.
+- During the weight experiment, the code was left with the new weights while the docs still described the old ones. I had to make sure the code and docs matched again.
+- The 10 songs it added have made-up values. They look realistic, but they aren't real measurements.
 
-- What you learned about recommender systems  
-- Something unexpected or interesting you discovered  
-- How this changed the way you think about music recommendation apps  
+The lesson: AI is fast at writing code and explanations, but running the code is what shows whether they're actually right.
+
+**What surprised me about simple algorithms.** The whole recommender is about 40 lines of adding and subtracting. But once each song showed a "Reasons" list, like "genre matches lofi (+2.0)", it felt like the app understood me. The Chill Lofi list honestly looked like a real study playlist. It also surprised me how confident it stays when it's wrong. An empty profile still gets a "top 5," which is just the first five rows of the file. Real apps probably feel smart for some of the same reasons, even when they're guessing.
+
+**What I'd try next.**
+- **Soft label matching:** give partial points for related genres and moods, so "indie pop" counts for a pop fan.
+- **A fake listening history:** give a few users likes and skips, so I can try collaborative filtering ("people like you also liked…") and compare it to my content-based version.
+- **A variety rule:** keep the top 5 from filling up with the same few loud songs.  
