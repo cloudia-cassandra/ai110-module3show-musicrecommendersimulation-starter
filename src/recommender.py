@@ -1,9 +1,14 @@
 import csv
+from collections import Counter
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass, asdict, field
 
 DECADE_TOLERANCE = 30       # songs 30+ years from the target decade earn 0
 MAX_TAGS_COUNTED = 2        # mood tag points stop after this many matches
+
+# Diversity re-ranking: subtracted once per song already picked with the same artist / genre
+ARTIST_REPEAT_PENALTY = 1.5
+GENRE_REPEAT_PENALTY = 0.75
 
 @dataclass(frozen=True)
 class ScoringMode:
@@ -96,19 +101,18 @@ class Recommender:
     OOP implementation of the recommendation logic.
     Required by tests/test_recommender.py
     """
-    def __init__(self, songs: List[Song], mode: ScoringMode = GENRE_FIRST):
+    def __init__(self, songs: List[Song], mode: ScoringMode = GENRE_FIRST, diverse: bool = False):
         self.songs = songs
         self.mode = mode
+        self.diverse = diverse
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
         """Returns the top k songs for the user, ranked by score_song from highest to lowest."""
-        prefs = user.to_prefs()
-        ranked = sorted(
-            self.songs,
-            key=lambda song: score_song(prefs, asdict(song), self.mode)[0],
-            reverse=True,
+        by_id = {song.id: song for song in self.songs}
+        results = recommend_songs(
+            user.to_prefs(), [asdict(song) for song in self.songs], k, self.mode, self.diverse
         )
-        return ranked[:k]
+        return [by_id[song["id"]] for song, _, _ in results]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
         """Returns a readable string with the song's score and the reasons behind it."""
@@ -216,15 +220,49 @@ def score_song(user_prefs: Dict, song: Dict, mode: ScoringMode = GENRE_FIRST) ->
 
     return score, reasons
 
+def diversify(ranked: List[Tuple[Dict, float, List[str]]], k: int) -> List[Tuple[Dict, float, List[str]]]:
+    """Re-ranks songs one pick at a time, penalizing artists and genres already in the list."""
+    picked = []
+    artist_counts, genre_counts = Counter(), Counter()
+    remaining = list(ranked)
+
+    def adjusted(item):
+        song, score, _ = item
+        return (score
+                - ARTIST_REPEAT_PENALTY * artist_counts[song["artist"]]
+                - GENRE_REPEAT_PENALTY * genre_counts[song["genre"]])
+
+    while remaining and len(picked) < k:
+        # max() keeps the first of any ties, so equal scores stay in their original order
+        best = max(remaining, key=adjusted)
+        remaining.remove(best)
+        song, _, reasons = best
+
+        penalties = []
+        if artist_counts[song["artist"]]:
+            cost = ARTIST_REPEAT_PENALTY * artist_counts[song["artist"]]
+            penalties.append(f"diversity: artist {song['artist']} already in list (-{cost:.2f})")
+        if genre_counts[song["genre"]]:
+            cost = GENRE_REPEAT_PENALTY * genre_counts[song["genre"]]
+            penalties.append(f"diversity: genre {song['genre']} already in list (-{cost:.2f})")
+
+        picked.append((song, adjusted(best), reasons + penalties))
+        artist_counts[song["artist"]] += 1
+        genre_counts[song["genre"]] += 1
+
+    return picked
+
 def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5,
-                    mode: ScoringMode = GENRE_FIRST) -> List[Tuple[Dict, float, str]]:
+                    mode: ScoringMode = GENRE_FIRST, diverse: bool = False) -> List[Tuple[Dict, float, str]]:
     """
     Functional implementation of the recommendation logic.
     Required by src/main.py
     """
-    scored = []
-    for song in songs:
-        score, reasons = score_song(user_prefs, song, mode)
-        scored.append((song, score, "; ".join(reasons)))
-    scored.sort(key=lambda item: item[1], reverse=True)
-    return scored[:k]
+    ranked = sorted(
+        ((song, *score_song(user_prefs, song, mode)) for song in songs),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    if diverse:
+        ranked = diversify(ranked, k)
+    return [(song, score, "; ".join(reasons)) for song, score, reasons in ranked[:k]]

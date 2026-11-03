@@ -108,6 +108,10 @@ The same rules can run with three different weight sets ("strategies"):
 
 Switch modes with `python -m src.main --mode mood-first`, or change `DEFAULT_MODE` in `src/main.py`.
 
+### Diversity penalty (optional)
+
+Add `--diverse` to stop the top 5 from repeating artists or genres. Each song's score drops by **1.5 for every song by the same artist** and **0.75 for every song in the same genre** already in the list. The list is built one pick at a time, so penalties update after each pick. Example: `python -m src.main --mode mood-first --diverse`.
+
 ### Expected biases
 
 - **Over-prioritizes genre.** A +2.0 genre match can outweigh a mismatched vibe. A "sad rocker" gets *Storm Runner* (intense, energy 0.91) at #2, ahead of calm, sad songs from other genres.

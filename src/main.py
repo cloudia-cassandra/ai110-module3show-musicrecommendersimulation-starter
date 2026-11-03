@@ -76,13 +76,18 @@ def print_recommendations(name: str, user_prefs: dict, recommendations: list) ->
 def main() -> None:
     parser = argparse.ArgumentParser(description="Music Recommender Simulation")
     parser.add_argument("--mode", choices=MODES, default=DEFAULT_MODE, help="ranking strategy to use")
-    mode = MODES[parser.parse_args().mode]
+    parser.add_argument("--diverse", action="store_true",
+                        help="penalize repeat artists and genres in the top results")
+    args = parser.parse_args()
+    mode = MODES[args.mode]
 
     songs = load_songs("data/songs.csv")
     print(f"Scoring mode: {mode.name} ({mode.description})")
+    if args.diverse:
+        print("Diversity penalty: on (repeat artists and genres lose points)")
 
     for name, user_prefs in {**PROFILES, **EDGE_CASE_PROFILES, **ADVANCED_PROFILES}.items():
-        recommendations = recommend_songs(user_prefs, songs, k=5, mode=mode)
+        recommendations = recommend_songs(user_prefs, songs, k=5, mode=mode, diverse=args.diverse)
         print_recommendations(name, user_prefs, recommendations)
 
 

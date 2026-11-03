@@ -100,3 +100,47 @@ DISCOVERY = ScoringMode("discovery", "Favors less popular songs.", popularity=2.
   - *High-Energy Pop:* genre-first ranks *Gym Hero* #2, and mood-first and energy-focused both move the happier *Rooftop Lights* up to #2.
   - *Energetic but Sad:* energy-focused drops the quiet *Paper Hearts* from #1 and puts loud songs first.
 - **One questionable result:** in mood-first mode, *Library Rain* (instrumental lofi) climbs to #3 for *Throwback Heartbreak* on its "rainy" tag alone. That's a sign the bigger tag bonus (0.75) may be too strong.
+
+---
+
+## Diversity and Fairness Logic (Challenge 3)
+
+**What task did you give the agent?**
+
+Add a "diversity penalty" so the top results don't fill up with songs from the same artist or genre.
+
+**Prompt used:**
+
+> In `src/recommender.py`, add an optional diversity step to the ranking. Build the top-k list one song at a time. At each step, pick the remaining song with the highest **adjusted** score: its normal score minus 1.5 for each song by the **same artist** already in the list, and minus 0.75 for each song in the **same genre** already in the list. When a penalty applies, add a reason like "diversity: artist LoRoom already in list (-1.50)". Keep it off by default so existing outputs and tests don't change, add a `--diverse` flag to `main.py`, and verify that (a) with it off, the output is identical, (b) with it on, Chill Lofi's top 5 no longer repeats an artist, and (c) each printed score equals the original score minus the penalties listed.
+
+**Key design decision:** the penalty lives in the **ranking** step, not in `score_song`. Whether a song "repeats an artist" depends on which songs are already in the list, and `score_song` judges one song at a time. So the new `diversify()` function re-ranks the scored list *greedily*: it picks the best song, updates the artist and genre counts, re-checks every remaining song with the new penalties, and repeats until it has k songs.
+
+**What did the agent generate or change?**
+
+| File | Change |
+|---|---|
+| `src/recommender.py` | `ARTIST_REPEAT_PENALTY = 1.5` and `GENRE_REPEAT_PENALTY = 0.75`; a new `diversify()` function; `recommend_songs(..., diverse=False)` and `Recommender(..., diverse=False)`. `Recommender.recommend` now goes through `recommend_songs`, so both paths share one ranking. |
+| `src/main.py` | A `--diverse` flag, which also prints "Diversity penalty: on" at the top. Works with any `--mode`. |
+| `tests/test_recommender.py` | A new test: two strong songs by the same artist and one weaker song by another artist. Without diversity, the top 2 are both by the same artist; with it, the other artist gets the #2 spot. |
+
+**Why the penalties are 1.5 and 0.75:** a repeat artist should cost more than a near-miss on energy (energy 0.25 off costs 0.5), but less than a genre match (2.0). That way a clearly better song by the same artist can still make the list. A repeat genre costs half as much, because a lofi fan still *wants* several lofi songs.
+
+**What did you verify or fix manually?**
+
+- **Off by default:** with `--diverse` off, the output is identical to the previous commit in all 3 modes, and all 5 tests pass.
+- **The math adds up:** for every song in every profile, the printed score equals the original score minus the listed penalties.
+- **It does its job.** Chill Lofi before and after:
+
+  | | Before | After `--diverse` |
+  |---|---|---|
+  | Top 5 | Library Rain, Midnight Coding, **Focus Flow**, Spacewalk Thoughts, Coffee Shop Stories | Library Rain, Midnight Coding, Spacewalk Thoughts, Coffee Shop Stories, **Gray Morning Blues** |
+  | Most songs by one artist | 2 (LoRoom) | 1 |
+  | Most songs in one genre | 3 (lofi) | 2 |
+
+  *Focus Flow* dropped from 4.29 to 1.29: −1.50 because LoRoom was already in the list, and −1.50 because 2 lofi songs were already there.
+- **Across all 12 profiles:** 7 lists changed, and no list repeats an artist anymore.
+
+**Trade-offs I noticed:**
+- **Diversity can cost relevance.** For *Rap Hits* and *Messy Input*, *Night Drive Loop* (a repeat Neon Echo song) was replaced by *Storm Runner*, an intense rock song that's a worse fit for those listeners. For Chill Lofi, *Gray Morning Blues* (melancholic blues) entered at #5. It's calm and acoustic, but it isn't really study music.
+- **Fairness for artists:** without the penalty, LoRoom and Neon Echo, the only artists with two songs, could take two of the five spots. With it, five different artists get exposure. In a real app this matters, because being recommended means being heard and paid.
+- **Small catalog:** with only 20 songs, "the next most diverse" song is sometimes not very good. A bigger catalog would let diversity help without hurting fit.

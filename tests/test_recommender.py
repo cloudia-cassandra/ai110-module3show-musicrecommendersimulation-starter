@@ -92,3 +92,20 @@ def test_scoring_modes_change_the_ranking():
 
     assert genre_first.genre == "lofi"
     assert mood_first.mood == "happy"
+
+
+def test_diversity_penalty_avoids_repeating_an_artist():
+    def song(id, artist, genre, energy):
+        return Song(id=id, title=f"Song {id}", artist=artist, genre=genre, mood="happy",
+                    energy=energy, tempo_bpm=120, valence=0.8, danceability=0.8, acousticness=0.2)
+
+    # Two strong songs by the same artist, and a slightly weaker one by someone else
+    songs = [song(1, "Same Artist", "pop", 0.8), song(2, "Same Artist", "pop", 0.75),
+             song(3, "Other Artist", "pop", 0.6)]
+    user = UserProfile(favorite_genre="pop", favorite_mood="happy", target_energy=0.8, likes_acoustic=False)
+
+    plain = Recommender(songs).recommend(user, k=2)
+    diverse = Recommender(songs, diverse=True).recommend(user, k=2)
+
+    assert [s.artist for s in plain] == ["Same Artist", "Same Artist"]
+    assert [s.artist for s in diverse] == ["Same Artist", "Other Artist"]
