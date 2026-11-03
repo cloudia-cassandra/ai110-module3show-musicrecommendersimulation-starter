@@ -23,6 +23,15 @@ Prompts:
 
 The recommender gives every song in the catalog a score showing how well it fits one listener's taste, then recommends the highest-scoring songs.
 
+**The approach in plain language:** think of it as a judge with a scorecard. The listener first describes what they're in the mood for, such as "upbeat pop, happy, fairly energetic." The judge then listens to every song in the catalog, one at a time, and fills in the same scorecard for each:
+- Is it the right genre? That earns a big bonus.
+- Is it the right mood? That earns a smaller bonus.
+- How close is its energy to what the listener asked for? The closer it is, the more points it gets.
+
+A song doesn't win by being the loudest or the calmest. It wins by being the *closest fit*. The judge never compares songs to each other while scoring; each song is judged on its own. Only after every song has a score does the judge line them up from highest to lowest and hand the listener the top five, with the scorecard notes for each, so the listener can see exactly why a song made the list.
+
+This is a **content-based** approach. It looks only at what the songs are like, not at what other people listen to. Apps like Spotify also learn from millions of other listeners' plays and skips.
+
 **What it knows about the listener:** a favorite genre, a favorite mood, how energetic they want the music (0 = very calm, 1 = very intense), and optionally how bright or dark it should sound (valence) and whether they like acoustic music.
 
 **Final scoring recipe (maximum 6.5 points):**

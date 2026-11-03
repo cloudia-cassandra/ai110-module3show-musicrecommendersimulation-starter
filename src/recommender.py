@@ -57,6 +57,7 @@ class Recommender:
         self.songs = songs
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
+        """Returns the top k songs for the user, ranked by score_song from highest to lowest."""
         prefs = user.to_prefs()
         ranked = sorted(
             self.songs,
@@ -66,6 +67,7 @@ class Recommender:
         return ranked[:k]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
+        """Returns a readable string with the song's score and the reasons behind it."""
         score, reasons = score_song(user.to_prefs(), asdict(song))
         if not reasons:
             return f"Score {score:.2f}: no strong matches with your preferences"
